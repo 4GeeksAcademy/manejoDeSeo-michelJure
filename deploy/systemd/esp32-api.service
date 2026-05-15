@@ -1,0 +1,23 @@
+[Unit]
+Description=ESP32 Data API (Flask)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/manejoDeSeo-michelJure
+EnvironmentFile=/etc/default/esp32-api
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/manejoDeSeo-michelJure/.venv/bin/python /opt/manejoDeSeo-michelJure/app.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/manejoDeSeo-michelJure/data
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[esp32-api-auth]
+enabled = true
+port = http,https
+filter = esp32-api-auth
+logpath = /var/log/nginx/access.log
+findtime = 600
+maxretry = 8
+bantime = 3600
+backend = auto
