@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Instalador automatizado para Ubuntu.
-# Configura: systemd, nginx + TLS, ufw, fail2ban y logrotate.
+# Instalador automatizado para Ubuntu en modo temporal por IP (sin dominio/HTTPS).
+# Configura: systemd, nginx, ufw, fail2ban y logrotate.
 
 if [[ "${EUID}" -eq 0 ]]; then
   echo "Ejecuta este script como usuario normal (no root). Usa sudo cuando sea necesario."
@@ -20,22 +20,9 @@ if [[ "${ID:-}" != "ubuntu" ]]; then
   exit 1
 fi
 
-APP_NAME="esp32-api"
 DEFAULT_APP_DIR="/opt/manejoDeSeo-michelJure"
 APP_DIR="${APP_DIR:-$DEFAULT_APP_DIR}"
-DOMAIN="${DOMAIN:-}"
-LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 API_KEY_VALUE="${API_KEY:-}"
-
-if [[ -z "${DOMAIN}" ]]; then
-  echo "Falta DOMAIN. Ejemplo: DOMAIN=api.tudominio.com"
-  exit 1
-fi
-
-if [[ -z "${LETSENCRYPT_EMAIL}" ]]; then
-  echo "Falta LETSENCRYPT_EMAIL. Ejemplo: LETSENCRYPT_EMAIL=tu@email.com"
-  exit 1
-fi
 
 if [[ -z "${API_KEY_VALUE}" ]]; then
   API_KEY_VALUE="$(openssl rand -hex 32)"
@@ -55,7 +42,7 @@ fi
 
 echo "==> Instalando paquetes del sistema"
 sudo apt update
-sudo apt install -y python3 python3-venv nginx certbot python3-certbot-nginx fail2ban openssl
+sudo apt install -y python3 python3-venv nginx fail2ban openssl
 
 echo "==> Preparando entorno Python"
 cd "${APP_DIR}"
@@ -82,9 +69,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable esp32-api
 sudo systemctl restart esp32-api
 
-echo "==> Configurando Nginx"
-sudo cp "${APP_DIR}/deploy/nginx/esp32-api.conf" /etc/nginx/sites-available/esp32-api.conf
-sudo sed -i "s|api.tudominio.com|${DOMAIN}|g" /etc/nginx/sites-available/esp32-api.conf
+echo "==> Configurando Nginx (modo IP)"
+sudo cp "${APP_DIR}/deploy/nginx/esp32-api-ip-only.conf" /etc/nginx/sites-available/esp32-api.conf
 if [[ ! -e /etc/nginx/sites-enabled/esp32-api.conf ]]; then
   sudo ln -s /etc/nginx/sites-available/esp32-api.conf /etc/nginx/sites-enabled/esp32-api.conf
 fi
@@ -94,12 +80,9 @@ fi
 sudo nginx -t
 sudo systemctl reload nginx
 
-echo "==> Emision de certificado TLS"
-sudo certbot --nginx --non-interactive --agree-tos -m "${LETSENCRYPT_EMAIL}" -d "${DOMAIN}" --redirect
-
 echo "==> Configurando firewall (UFW)"
 sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
+sudo ufw allow 'Nginx HTTP'
 sudo ufw --force enable
 
 echo "==> Configurando Fail2ban"
@@ -112,9 +95,8 @@ echo "==> Configurando logrotate"
 sudo cp "${APP_DIR}/deploy/logrotate/esp32-api" /etc/logrotate.d/esp32-api
 
 echo
-echo "Instalacion finalizada."
-echo "Dominio: https://${DOMAIN}"
-echo "Endpoint: https://${DOMAIN}/api/esp32/data"
+echo "Instalacion IP-only finalizada."
+echo "Endpoint temporal: http://IP_PUBLICA_VPS/api/esp32/data"
 echo "API_KEY: ${API_KEY_VALUE}"
 echo
 echo "Verificaciones sugeridas:"

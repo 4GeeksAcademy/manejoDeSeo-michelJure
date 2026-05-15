@@ -72,6 +72,6 @@ def receive_esp32_data():
 
 if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8000"))
+    port = int(os.getenv("PORT", "2323"))
     debug = os.getenv("DEBUG", "false").lower() == "true"
     app.run(host=host, port=port, debug=debug)

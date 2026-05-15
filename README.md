@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 ```bash
 export API_KEY="mi_clave_segura"
-export PORT=8000
+export PORT=2323
 python app.py
 ```
 
@@ -28,7 +28,7 @@ Si defines `API_KEY`, debes enviar el header `X-API-Key`.
 ## 3) Probar desde terminal
 
 ```bash
-curl -X POST http://TU_VPS:8000/api/esp32/data \
+curl -X POST http://TU_VPS:2323/api/esp32/data \
 	-H "Content-Type: application/json" \
 	-H "X-API-Key: mi_clave_segura" \
 	-d '{"temperature":24.7,"humidity":61,"device_id":"esp32-01"}'
@@ -164,7 +164,7 @@ sudo systemctl status certbot.timer
 
 - Usa una `API_KEY` larga y aleatoria en `/etc/default/esp32-api`.
 - Deja Flask escuchando solo en `127.0.0.1` (ya configurado en ejemplo).
-- No expongas el puerto `8000` en el firewall.
+- No expongas el puerto `2323` en el firewall.
 - Verifica que el ESP32 envie a `https://api.tudominio.com/api/esp32/data`.
 - Revisa logs periodicamente:
 
@@ -244,3 +244,72 @@ DOMAIN=api.tudominio.com LETSENCRYPT_EMAIL=tu@email.com API_KEY='tu_clave_super_
 ```
 
 Si no pasas `API_KEY`, el script genera una automaticamente y la muestra al final.
+
+## 11) Modo temporal sin dominio (solo IP)
+
+Si todavia no tienes dominio, puedes dejarlo funcionando por HTTP usando la IP publica del VPS.
+
+Archivo de ejemplo: [deploy/nginx/esp32-api-ip-only.conf](deploy/nginx/esp32-api-ip-only.conf).
+
+1. Configura y arranca el servicio Python (systemd):
+
+```bash
+cd /opt/manejoDeSeo-michelJure
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+sudo cp /opt/manejoDeSeo-michelJure/deploy/systemd/esp32-api.service /etc/systemd/system/esp32-api.service
+sudo cp /opt/manejoDeSeo-michelJure/deploy/systemd/esp32-api.env.example /etc/default/esp32-api
+sudo sed -i 's|^HOST=.*|HOST=127.0.0.1|' /etc/default/esp32-api
+sudo sed -i 's|^PORT=.*|PORT=2323|' /etc/default/esp32-api
+sudo systemctl daemon-reload
+sudo systemctl enable esp32-api
+sudo systemctl start esp32-api
+```
+
+2. Configura Nginx para exponer por puerto 80:
+
+```bash
+sudo cp /opt/manejoDeSeo-michelJure/deploy/nginx/esp32-api-ip-only.conf /etc/nginx/sites-available/esp32-api.conf
+sudo ln -sf /etc/nginx/sites-available/esp32-api.conf /etc/nginx/sites-enabled/esp32-api.conf
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+3. Abre firewall:
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx HTTP'
+sudo ufw --force enable
+```
+
+4. Prueba desde tu PC:
+
+```bash
+curl -X POST http://IP_PUBLICA_VPS/api/esp32/data \
+	-H "Content-Type: application/json" \
+	-H "X-API-Key: TU_API_KEY" \
+	-d '{"device_id":"esp32-01","temperature":25.1}'
+```
+
+5. En el ESP32 usa este endpoint temporal:
+
+```cpp
+const char* endpoint = "http://IP_PUBLICA_VPS/api/esp32/data";
+```
+
+Importante: este modo es temporal porque viaja por HTTP sin cifrado. Cuando tengas dominio, migra al modo HTTPS de la seccion 6.
+
+### Instalacion en un solo comando (IP-only)
+
+Tambien tienes un instalador dedicado para este modo: [deploy/install_ubuntu_ip_only.sh](deploy/install_ubuntu_ip_only.sh).
+
+```bash
+cd /opt/manejoDeSeo-michelJure
+chmod +x deploy/install_ubuntu_ip_only.sh
+API_KEY='tu_clave_super_larga' APP_DIR=/opt/manejoDeSeo-michelJure ./deploy/install_ubuntu_ip_only.sh
+```
+
+Si no pasas `API_KEY`, el script la genera automaticamente y la muestra al final.
