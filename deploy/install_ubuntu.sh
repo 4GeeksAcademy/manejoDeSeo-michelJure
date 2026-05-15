@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+if [ -z "${BASH_VERSION:-}" ]; then
+  echo "Este script requiere bash. Ejecuta: bash deploy/install_ubuntu.sh" >&2
+  exit 1
+fi
+
 set -euo pipefail
 
 # Instalador automatizado para Ubuntu.
